@@ -1,0 +1,59 @@
+Subject: [PATCH v4 4/8] ext4: account the data request of read operations in buffered io
+From: Zheng Liu <wenqing.lz@taobao.com>
+
+ll_rw_block in ext4_discard_partial_page_buffers_no_lock is replaced with
+ext4_submit_bh_read, and ext4_ios_read are called in ext4_readpage and
+ext4_readpages in order to account the data request.
+
+CC: Jens Axboe <axboe@kernel.dk>
+CC: Steven Whitehouse <swhiteho@redhat.com>
+CC: Aditya Kali <adityakali@google.com>
+Signed-off-by: Wang Shaoyan <wangshaoyan.pt@taobao.com>
+Signed-off-by: Zheng Liu <wenqing.lz@taobao.com>
+---
+ fs/ext4/inode.c |   14 +++++++++-----
+ 1 files changed, 9 insertions(+), 5 deletions(-)
+
+diff --git a/fs/ext4/inode.c b/fs/ext4/inode.c
+index b68d129..ff56658 100644
+--- a/fs/ext4/inode.c
++++ b/fs/ext4/inode.c
+@@ -2665,6 +2665,8 @@ static sector_t ext4_bmap(struct address_space *mapping, sector_t block)
+ static int ext4_readpage(struct file *file, struct page *page)
+ {
+ 	trace_ext4_readpage(page);
++	ext4_ios_read(page->mapping->host->i_sb, EXT4_IOS_REGULAR_DATA,
++		      ext4_blocks_per_page(page->mapping->host));
+ 	return mpage_readpage(page, ext4_get_block);
+ }
+ 
+@@ -2672,6 +2674,8 @@ static int
+ ext4_readpages(struct file *file, struct address_space *mapping,
+ 		struct list_head *pages, unsigned nr_pages)
+ {
++	ext4_ios_read(mapping->host->i_sb, EXT4_IOS_REGULAR_DATA,
++		      ext4_blocks_per_page(mapping->host));
+ 	return mpage_readpages(mapping, pages, nr_pages, ext4_get_block);
+ }
+ 
+@@ -3268,12 +3272,12 @@ static int ext4_discard_partial_page_buffers_no_lock(handle_t *handle,
+ 		if (PageUptodate(page))
+ 			set_buffer_uptodate(bh);
+ 
+-		if (!buffer_uptodate(bh)) {
+-			err = -EIO;
+-			ll_rw_block(READ, 1, &bh);
+-			wait_on_buffer(bh);
++		if (!bh_uptodate_or_lock(bh)) {
++			err = ext4_submit_bh_read(READ, bh, inode->i_sb,
++						  EXT4_IOS_REGULAR_DATA,
++						  ext4_blocks_per_page(inode));
+ 			/* Uhhuh. Read error. Complain and punt.*/
+-			if (!buffer_uptodate(bh))
++			if (err)
+ 				goto next;
+ 		}
+ 
+-- 
+1.7.4.1
+
