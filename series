@@ -17,7 +17,12 @@ io-stat-0006-account-data-of-buffer-write.patch
 io-stat-0007-account-direct-io.patch
 io-stat-0008-show-result.patch
 
+# expose stale data in fallocate
+add-expose_stale_data-flag-in-fallocate.patch
+
 # bug fix
 make-sure-SYNC-semantic.patch
 replace-ll_rw_block-with-other-functions.patch
-add-expose_stale_data-flag-in-fallocate.patch
+
+# cleanup
+remove-duplicated-declarations-in-inode.c.patch
