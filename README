@@ -1,4 +1,4 @@
 This repository contains a series of patches for ext4 filesystem.  Some patches
-has been submited to the community, and will be merged into ext4-patch-queue.
+have been submitted to the community, and will be merged into ext4-patch-queue.
 Others seem that they are impossible to be applied.  You can feel free to use
-this patches for yourself.  Any comments or suggestions are welcome. :-)
+these patches for yourself.  Any comments or suggestions are welcome. :-)
