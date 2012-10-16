@@ -1,15 +1,17 @@
-From 9424ead613c03503611f92652f3d7547da4dcb0f Mon Sep 17 00:00:00 2001
+Subject: [PATCH 1/2 v2] ext4: print 'flags' in ext4_ext_handle_uninitialized_extents
+
 From: Zheng Liu <wenqing.lz@taobao.com>
-Date: Tue, 16 Oct 2012 15:13:17 +0800
-Subject: [PATCH 1/2] ext4: print 'flags' in
- ext4_ext_handle_uninitialized_extents
 
 In trace_ext4_ext_handle_uninitialized_extents we don't care about the value of
 map->m_flags because this value is probably 0, and we prefer to get the value of
 flags because we can know how to handle this extent in this function.
 
+Reviewed-by: Lukas Czerner <lczerner@redhat.com>
 Signed-off-by: Zheng Liu <wenqing.lz@taobao.com>
 ---
+v2 <- v1:
+	change format flag from '%d' to '%x'.
+
  fs/ext4/extents.c           | 4 ++--
  include/trace/events/ext4.h | 8 ++++----
  2 files changed, 6 insertions(+), 6 deletions(-)
@@ -30,7 +32,7 @@ index 1c94cca..4ecc210 100644
  	/* get_block() before submit the IO, split the extent */
  	if ((flags & EXT4_GET_BLOCKS_PRE_IO)) {
 diff --git a/include/trace/events/ext4.h b/include/trace/events/ext4.h
-index d49b285..66d78dc 100644
+index d49b285..25914e3 100644
 --- a/include/trace/events/ext4.h
 +++ b/include/trace/events/ext4.h
 @@ -1680,10 +1680,10 @@ DEFINE_EVENT(ext4__trim, ext4_trim_all_free,
@@ -60,7 +62,7 @@ index d49b285..66d78dc 100644
  	),
  
 -	TP_printk("dev %d,%d ino %lu m_lblk %u m_pblk %llu m_len %u flags %d"
-+	TP_printk("dev %d,%d ino %lu m_lblk %u m_pblk %llu m_len %u flags %d "
++	TP_printk("dev %d,%d ino %lu m_lblk %u m_pblk %llu m_len %u flags %x "
  		  "allocated %d newblock %llu",
  		  MAJOR(__entry->dev), MINOR(__entry->dev),
  		  (unsigned long) __entry->ino,
