@@ -1,0 +1,53 @@
+Subject: [PATCH] ext4: missing trace_ext4_ext_map_blocks_exit after calling ext4_ext_handle_uninitialized_extents
+
+From: Zheng Liu <wenqing.lz@taobao.com>
+
+When ext4_ext_handle_uninitialized_extents is called, we will directly return
+from ext4_ext_map_blocks.  The trace point of trace_ext4_ext_map_blocks_exit
+isn't called, and the user doesn't see any result.  This patch fix this problem.
+
+Meanwhile in ext4_ext_handle_uninitialized_extents it returns errors or the
+number of allocated blocks.  So 'ret' variable can be removed.
+
+Signed-off-by: Zheng Liu <wenqing.lz@taobao.com>
+---
+ fs/ext4/extents.c | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
+
+diff --git a/fs/ext4/extents.c b/fs/ext4/extents.c
+index 1c94cca..dc7ef4c 100644
+--- a/fs/ext4/extents.c
++++ b/fs/ext4/extents.c
+@@ -3876,7 +3876,7 @@ int ext4_ext_map_blocks(handle_t *handle, struct inode *inode,
+ 	struct ext4_extent newex, *ex, *ex2;
+ 	struct ext4_sb_info *sbi = EXT4_SB(inode->i_sb);
+ 	ext4_fsblk_t newblock = 0;
+-	int free_on_err = 0, err = 0, depth, ret;
++	int free_on_err = 0, err = 0, depth;
+ 	unsigned int allocated = 0, offset = 0;
+ 	unsigned int allocated_clusters = 0;
+ 	struct ext4_allocation_request ar;
+@@ -3972,10 +3972,10 @@ int ext4_ext_map_blocks(handle_t *handle, struct inode *inode,
+ 					ee_len, ee_start);
+ 				goto out;
+ 			}
+-			ret = ext4_ext_handle_uninitialized_extents(
++			allocated = ext4_ext_handle_uninitialized_extents(
+ 				handle, inode, map, path, flags,
+ 				allocated, newblock);
+-			return ret;
++			goto out3;
+ 		}
+ 	}
+ 
+@@ -4249,6 +4249,7 @@ out2:
+ 		kfree(path);
+ 	}
+ 
++out3:
+ 	trace_ext4_ext_map_blocks_exit(inode, map->m_lblk,
+ 		newblock, map->m_len, err ? err : allocated);
+ 
+-- 
+1.7.12.rc2.18.g61b472e
+
