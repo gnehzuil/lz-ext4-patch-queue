@@ -1,0 +1,100 @@
+Subject: [PATCH] ext4: add hot tracking support
+
+From: Zheng Liu <wenqing.lz@taobao.com>
+
+Define a new mount option to add VFS hot tracking support in order to use it in
+ext4.
+
+CC: Zhi Yong Wu <zwu.kernel@gmail.com>
+Signed-off-by: Zheng Liu <wenqing.lz@taobao.com>
+---
+Hi Zhiyong,
+
+Here is a try to add hot tracking support in ext4.  I do some simple tests and
+it works well.
+
+Regards,
+Zheng
+
+ fs/ext4/ext4.h  |  3 +++
+ fs/ext4/super.c | 15 ++++++++++++++-
+ 2 files changed, 17 insertions(+), 1 deletion(-)
+
+diff --git a/fs/ext4/ext4.h b/fs/ext4/ext4.h
+index 3c20de1..f6cff1e 100644
+--- a/fs/ext4/ext4.h
++++ b/fs/ext4/ext4.h
+@@ -1298,6 +1298,9 @@ struct ext4_sb_info {
+ 
+ 	/* Precomputed FS UUID checksum for seeding other checksums */
+ 	__u32 s_csum_seed;
++
++	/* Enable hot tracking or not */
++	int s_hottrack_enable;
+ };
+ 
+ static inline struct ext4_sb_info *EXT4_SB(struct super_block *sb)
+diff --git a/fs/ext4/super.c b/fs/ext4/super.c
+index 80928f7..1506dc3 100644
+--- a/fs/ext4/super.c
++++ b/fs/ext4/super.c
+@@ -43,6 +43,7 @@
+ 
+ #include <linux/kthread.h>
+ #include <linux/freezer.h>
++#include <linux/hot_tracking.h>
+ 
+ #include "ext4.h"
+ #include "ext4_extents.h"
+@@ -864,6 +865,8 @@ static void ext4_put_super(struct super_block *sb)
+ 	ext4_ext_release(sb);
+ 	ext4_xattr_put_super(sb);
+ 
++	if (sbi->s_hottrack_enable)
++		hot_track_exit(sb);
+ 	if (!(sb->s_flags & MS_RDONLY)) {
+ 		EXT4_CLEAR_INCOMPAT_FEATURE(sb, EXT4_FEATURE_INCOMPAT_RECOVER);
+ 		es->s_state = cpu_to_le16(sbi->s_mount_state);
+@@ -1222,7 +1225,7 @@ enum {
+ 	Opt_inode_readahead_blks, Opt_journal_ioprio,
+ 	Opt_dioread_nolock, Opt_dioread_lock,
+ 	Opt_discard, Opt_nodiscard, Opt_init_itable, Opt_noinit_itable,
+-	Opt_max_dir_size_kb,
++	Opt_max_dir_size_kb, Opt_hottrack,
+ };
+ 
+ static const match_table_t tokens = {
+@@ -1297,6 +1300,7 @@ static const match_table_t tokens = {
+ 	{Opt_init_itable, "init_itable"},
+ 	{Opt_noinit_itable, "noinit_itable"},
+ 	{Opt_max_dir_size_kb, "max_dir_size_kb=%u"},
++	{Opt_hottrack, "hot_track"},
+ 	{Opt_removed, "check=none"},	/* mount option from ext2/3 */
+ 	{Opt_removed, "nocheck"},	/* mount option from ext2/3 */
+ 	{Opt_removed, "reservation"},	/* mount option from ext2/3 */
+@@ -1478,6 +1482,7 @@ static const struct mount_opts {
+ 	{Opt_jqfmt_vfsv0, QFMT_VFS_V0, MOPT_QFMT},
+ 	{Opt_jqfmt_vfsv1, QFMT_VFS_V1, MOPT_QFMT},
+ 	{Opt_max_dir_size_kb, 0, MOPT_GTE0},
++	{Opt_hottrack, 0, MOPT_GTE0},
+ 	{Opt_err, 0, 0}
+ };
+ 
+@@ -1595,6 +1600,14 @@ static int handle_mount_opt(struct super_block *sb, char *opt, int token,
+ 			sbi->s_li_wait_mult = arg;
+ 		} else if (token == Opt_max_dir_size_kb) {
+ 			sbi->s_max_dir_size_kb = arg;
++		} else if (token == Opt_hottrack) {
++			if (hot_track_init(sb)) {
++				ext4_msg(sb, KERN_ERR,
++					 "EXT4-fs: hot tracking initialization"
++					 " failed");
++				return -1;
++			}
++			sbi->s_hottrack_enable = 1;
+ 		} else if (token == Opt_stripe) {
+ 			sbi->s_stripe = arg;
+ 		} else if (m->flags & MOPT_DATAJ) {
+-- 
+1.7.12.rc2.18.g61b472e
+
