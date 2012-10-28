@@ -1,8 +1,6 @@
-From adfff7a3debb451b29be80922e71c8e62b4ab3e3 Mon Sep 17 00:00:00 2001
+Subject: [PATCH 6/8 v3] ext4: reimplement ext4_find_delay_alloc_range on extent status tree
+
 From: Zheng Liu <wenqing.lz@taobao.com>
-Date: Tue, 16 Oct 2012 05:07:07 +0800
-Subject: [PATCH 07/11] ext4: reimplement ext4_find_delay_alloc_range on
- extent status tree
 
 ext4_find_delay_alloc_range is reimplemented on extent status tree.
 
@@ -18,10 +16,10 @@ Signed-off-by: Zheng Liu <wenqing.lz@taobao.com>
  4 files changed, 20 insertions(+), 157 deletions(-)
 
 diff --git a/fs/ext4/ext4.h b/fs/ext4/ext4.h
-index 08b37dc..07ddd68 100644
+index bcc634b..246e38f 100644
 --- a/fs/ext4/ext4.h
 +++ b/fs/ext4/ext4.h
-@@ -2452,14 +2452,10 @@ enum ext4_state_bits {
+@@ -2451,14 +2451,10 @@ enum ext4_state_bits {
  				 * never, ever appear in a buffer_head's state
  				 * flag. See EXT4_MAP_FROM_CLUSTER to see where
  				 * this is used. */
@@ -50,10 +48,10 @@ index cb1b2c9..603bb11 100644
  #endif /* _EXT4_EXTENTS */
  
 diff --git a/fs/ext4/extents.c b/fs/ext4/extents.c
-index 5e8ea45..ffcd0b8 100644
+index 0e1a925..d6da3a8 100644
 --- a/fs/ext4/extents.c
 +++ b/fs/ext4/extents.c
-@@ -3426,115 +3426,34 @@ out:
+@@ -3461,115 +3461,34 @@ out:
  /**
   * ext4_find_delalloc_range: find delayed allocated block in the given range.
   *
@@ -183,7 +181,7 @@ index 5e8ea45..ffcd0b8 100644
  }
  
  /**
-@@ -3595,7 +3514,7 @@ get_reserved_cluster_alloc(struct inode *inode, ext4_lblk_t lblk_start,
+@@ -3630,7 +3549,7 @@ get_reserved_cluster_alloc(struct inode *inode, ext4_lblk_t lblk_start,
  		lblk_from = lblk_start & (~(sbi->s_cluster_ratio - 1));
  		lblk_to = lblk_from + c_offset - 1;
  
@@ -192,7 +190,7 @@ index 5e8ea45..ffcd0b8 100644
  			allocated_clusters--;
  	}
  
-@@ -3605,7 +3524,7 @@ get_reserved_cluster_alloc(struct inode *inode, ext4_lblk_t lblk_start,
+@@ -3640,7 +3559,7 @@ get_reserved_cluster_alloc(struct inode *inode, ext4_lblk_t lblk_start,
  		lblk_from = lblk_start + num_blks;
  		lblk_to = lblk_from + (sbi->s_cluster_ratio - c_offset) - 1;
  
@@ -201,7 +199,7 @@ index 5e8ea45..ffcd0b8 100644
  			allocated_clusters--;
  	}
  
-@@ -3892,7 +3811,7 @@ int ext4_ext_map_blocks(handle_t *handle, struct inode *inode,
+@@ -3927,7 +3846,7 @@ int ext4_ext_map_blocks(handle_t *handle, struct inode *inode,
  	if (ext4_ext_in_cache(inode, map->m_lblk, &newex)) {
  		if (!newex.ee_start_lo && !newex.ee_start_hi) {
  			if ((sbi->s_cluster_ratio > 1) &&
@@ -210,7 +208,7 @@ index 5e8ea45..ffcd0b8 100644
  				map->m_flags |= EXT4_MAP_FROM_CLUSTER;
  
  			if ((flags & EXT4_GET_BLOCKS_CREATE) == 0) {
-@@ -3980,7 +3899,7 @@ int ext4_ext_map_blocks(handle_t *handle, struct inode *inode,
+@@ -4015,7 +3934,7 @@ int ext4_ext_map_blocks(handle_t *handle, struct inode *inode,
  	}
  
  	if ((sbi->s_cluster_ratio > 1) &&

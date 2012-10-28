@@ -1,7 +1,6 @@
-From b3d15c3fe7c28e43f17aa64e6409a01481beeadd Mon Sep 17 00:00:00 2001
+Subject: [PATCH 7/8 v3] ext4: reimplement fiemap on extent status tree
+
 From: Zheng Liu <wenqing.lz@taobao.com>
-Date: Tue, 16 Oct 2012 05:06:07 +0800
-Subject: [PATCH 06/11] ext4: reimplement fiemap on extent status tree
 
 This patch reimplements fiemap on extent status tree.
 
@@ -14,10 +13,10 @@ Signed-off-by: Zheng Liu <wenqing.lz@taobao.com>
  1 file changed, 21 insertions(+), 163 deletions(-)
 
 diff --git a/fs/ext4/extents.c b/fs/ext4/extents.c
-index 449201b..5e8ea45 100644
+index d6da3a8..a72197b 100644
 --- a/fs/ext4/extents.c
 +++ b/fs/ext4/extents.c
-@@ -4542,193 +4542,51 @@ static int ext4_ext_fiemap_cb(struct inode *inode, ext4_lblk_t next,
+@@ -4499,193 +4499,51 @@ static int ext4_ext_fiemap_cb(struct inode *inode, ext4_lblk_t next,
  		       struct ext4_ext_cache *newex, struct ext4_extent *ex,
  		       void *data)
  {

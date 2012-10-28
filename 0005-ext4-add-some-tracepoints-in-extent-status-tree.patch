@@ -1,7 +1,6 @@
-From 811eac4a7bb3291667a066ceacb07d040a1db775 Mon Sep 17 00:00:00 2001
+Subject: [PATCH 5/8 v3] ext4: add some tracepoints in extent status tree
+
 From: Zheng Liu <wenqing.lz@taobao.com>
-Date: Tue, 16 Oct 2012 05:05:07 +0800
-Subject: [PATCH 05/11] ext4: add some tracepoints in extent status tree
 
 This patch adds some tracepoints in extent status tree.
 
@@ -12,7 +11,7 @@ Signed-off-by: Zheng Liu <wenqing.lz@taobao.com>
  2 files changed, 109 insertions(+)
 
 diff --git a/fs/ext4/extents_status.c b/fs/ext4/extents_status.c
-index 3a1bab7..847e9c2 100644
+index 048ae8c..1c4af0a 100644
 --- a/fs/ext4/extents_status.c
 +++ b/fs/ext4/extents_status.c
 @@ -14,6 +14,8 @@
@@ -22,9 +21,9 @@ index 3a1bab7..847e9c2 100644
 +#include <trace/events/ext4.h>
 +
  /*
-  * extents status tree implementation for ext4.
-  *
-@@ -192,6 +194,8 @@ ext4_lblk_t ext4_es_find_extent(struct inode *inode, struct extent_status *es)
+  * According to previous discussion in Ext4 Developer Workshop, we will
+  * introduce a new structure called io tree to track all extent status in order
+@@ -223,6 +225,8 @@ ext4_lblk_t ext4_es_find_extent(struct inode *inode, struct extent_status *es)
  	struct rb_node *node;
  	ext4_lblk_t ret = EXT_MAX_BLOCKS;
  
@@ -33,16 +32,16 @@ index 3a1bab7..847e9c2 100644
  	read_lock(&EXT4_I(inode)->i_es_lock);
  	tree = &EXT4_I(inode)->i_es_tree;
  
-@@ -220,6 +224,8 @@ out:
- 		}
+@@ -252,6 +256,8 @@ out:
  	}
  
-+	trace_ext4_es_find_extent_exit(inode, es, ret);
-+
  	read_unlock(&EXT4_I(inode)->i_es_lock);
++
++	trace_ext4_es_find_extent_exit(inode, es, ret);
  	return ret;
  }
-@@ -363,6 +369,7 @@ int ext4_es_insert_extent(struct inode *inode, ext4_lblk_t offset,
+ 
+@@ -392,6 +398,7 @@ int ext4_es_insert_extent(struct inode *inode, ext4_lblk_t offset,
  	struct ext4_es_tree *tree;
  	int err = 0;
  
@@ -50,7 +49,7 @@ index 3a1bab7..847e9c2 100644
  	es_debug("add [%u/%u) to extent status tree of inode %lu\n",
  		 offset, len, inode->i_ino);
  
-@@ -392,6 +399,7 @@ int ext4_es_remove_extent(struct inode *inode, ext4_lblk_t offset,
+@@ -421,6 +428,7 @@ int ext4_es_remove_extent(struct inode *inode, ext4_lblk_t offset,
  	ext4_lblk_t len1, len2, end;
  	int err = 0;
  

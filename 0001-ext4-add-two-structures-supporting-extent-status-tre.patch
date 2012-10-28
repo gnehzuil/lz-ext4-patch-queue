@@ -1,23 +1,27 @@
-From a7b9be99b6d06379351c3898737082c5a66994be Mon Sep 17 00:00:00 2001
-From: Zheng Liu <wenqing.lz@taobao.com>
-Date: Tue, 16 Oct 2012 05:01:07 +0800
-Subject: [PATCH 01/11] ext4: add two structures supporting extent status tree
+Subject: [PATCH 1/8 v3] ext4: add two structures supporting extent status tree
 
-This patch adds two structures that supports status extent tree and
-status_extent_info to inode_info.
+From: Zheng Liu <wenqing.lz@taobao.com>
+
+This patch adds two structures that supports extent status tree, extent_status
+and ext4_es_tree.  Currently extent_status is used to track a delay extent for
+an inode, which record the start block and the length of the delay extent.
+ext4_es_tree is used to store all extent_status for an inode in memory.
 
 CC: "Theodore Ts'o" <tytso@mit.edu>
 Signed-off-by: Yongqiang Yang <xiaoqiangnk@gmail.com>
 Signed-off-by: Allison Henderson <achender@linux.vnet.ibm.com>
 Signed-off-by: Zheng Liu <wenqing.lz@taobao.com>
 ---
+v3 <- v2:
+ - add i_es_lock to protect extent status tree
+
  fs/ext4/ext4.h           |  6 ++++++
  fs/ext4/extents_status.h | 25 +++++++++++++++++++++++++
  2 files changed, 31 insertions(+)
  create mode 100644 fs/ext4/extents_status.h
 
 diff --git a/fs/ext4/ext4.h b/fs/ext4/ext4.h
-index 3ab2539..08b37dc 100644
+index 3c20de1..bcc634b 100644
 --- a/fs/ext4/ext4.h
 +++ b/fs/ext4/ext4.h
 @@ -811,6 +811,8 @@ struct ext4_ext_cache {

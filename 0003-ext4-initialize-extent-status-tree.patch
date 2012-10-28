@@ -1,7 +1,6 @@
-From 80f0f607082cf78206405f1d7d53cb948b70a658 Mon Sep 17 00:00:00 2001
+Subject: [PATCH 3/8 v3] ext4: initialize extent status tree
+
 From: Zheng Liu <wenqing.lz@taobao.com>
-Date: Tue, 16 Oct 2012 05:03:07 +0800
-Subject: [PATCH 03/11] ext4: initialize extent status tree
 
 Let ext4 initialize extent status tree of an inode.
 
@@ -10,14 +9,17 @@ Signed-off-by: Yongqiang Yang <xiaoqiangnk@gmail.com>
 Signed-off-by: Allison Henderson <achender@linux.vnet.ibm.com>
 Signed-off-by: Zheng Liu <wenqing.lz@taobao.com>
 ---
+v3 <- v2:
+ - initialize i_es_lock
+
  fs/ext4/super.c | 2 ++
  1 file changed, 2 insertions(+)
 
 diff --git a/fs/ext4/super.c b/fs/ext4/super.c
-index 7265a03..5487695 100644
+index 80928f7..e0c824b 100644
 --- a/fs/ext4/super.c
 +++ b/fs/ext4/super.c
-@@ -942,6 +942,8 @@ static struct inode *ext4_alloc_inode(struct super_block *sb)
+@@ -943,6 +943,8 @@ static struct inode *ext4_alloc_inode(struct super_block *sb)
  	memset(&ei->i_cached_extent, 0, sizeof(struct ext4_ext_cache));
  	INIT_LIST_HEAD(&ei->i_prealloc_list);
  	spin_lock_init(&ei->i_prealloc_lock);
