@@ -1,19 +1,21 @@
-From 6bd207c48523ebc9e56dcbdfe7a68b6973136f96 Mon Sep 17 00:00:00 2001
+Subject: [PATCH 2/3 v2] ext4: let us fully support punching hole feature in fallocate
+
 From: Zheng Liu <wenqing.lz@taobao.com>
-Date: Tue, 16 Oct 2012 05:02:07 +0800
-Subject: [PATCH 2/3] ext4: let us fully support punching hole feature in
- fallocate
+
+After adding indirect punching hole feature, we need to enable it in fallocate.
+For this purpose, some sanity checks need to be adjusted.  Currently we need to
+check FALLOC_FL_PUNCH_HOLE flag before other sanity checks.
 
 Signed-off-by: Zheng Liu <wenqing.lz@taobao.com>
 ---
- fs/ext4/extents.c | 15 ++++++++-------
- 1 file changed, 8 insertions(+), 7 deletions(-)
+ fs/ext4/extents.c | 14 +++++++-------
+ 1 file changed, 7 insertions(+), 7 deletions(-)
 
 diff --git a/fs/ext4/extents.c b/fs/ext4/extents.c
-index 1c94cca..fb3ecc4 100644
+index 7011ac9..b43b3e9 100644
 --- a/fs/ext4/extents.c
 +++ b/fs/ext4/extents.c
-@@ -4385,20 +4385,21 @@ long ext4_fallocate(struct file *file, int mode, loff_t offset, loff_t len)
+@@ -4420,13 +4420,6 @@ long ext4_fallocate(struct file *file, int mode, loff_t offset, loff_t len)
  	struct ext4_map_blocks map;
  	unsigned int credits, blkbits = inode->i_blkbits;
  
@@ -27,8 +29,7 @@ index 1c94cca..fb3ecc4 100644
  	/* Return error if mode is not supported */
  	if (mode & ~(FALLOC_FL_KEEP_SIZE | FALLOC_FL_PUNCH_HOLE))
  		return -EOPNOTSUPP;
- 
-+	/* We fully support punch hole */
+@@ -4434,6 +4427,13 @@ long ext4_fallocate(struct file *file, int mode, loff_t offset, loff_t len)
  	if (mode & FALLOC_FL_PUNCH_HOLE)
  		return ext4_punch_hole(file, offset, len);
  
