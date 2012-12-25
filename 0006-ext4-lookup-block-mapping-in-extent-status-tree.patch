@@ -1,0 +1,196 @@
+Subject: [RFC][PATCH 6/9 v1] ext4: lookup block mapping in extent status tree
+
+From: Zheng Liu <wenqing.lz@taobao.com>
+
+After tracking all extent status, we already have a extent cache in memory.
+Every time we want to lookup a block mapping, we can first try to lookup it in
+extent status tree to avoid a potential disk I/O.
+
+A new function called ext4_es_lookup_extent is defined to finish this work.
+When we try to lookup a block mapping, we always call ext4_map_blocks and/or
+ext4_da_map_blocks.  So in these functions we first try to lookup a block
+mapping in extent status tree.
+
+Signed-off-by: Zheng Liu <wenqing.lz@taobao.com>
+---
+ fs/ext4/extents_status.c | 57 ++++++++++++++++++++++++++++++++++++++++++++++++
+ fs/ext4/extents_status.h |  1 +
+ fs/ext4/inode.c          | 55 ++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 113 insertions(+)
+
+diff --git a/fs/ext4/extents_status.c b/fs/ext4/extents_status.c
+index 3e6fa43..ccd940c 100644
+--- a/fs/ext4/extents_status.c
++++ b/fs/ext4/extents_status.c
+@@ -454,6 +454,63 @@ error:
+ 	return err;
+ }
+ 
++/*
++ * ext4_es_lookup_extent() looks up an extent in extent status tree.
++ *
++ * ext4_es_lookup_extent is called by ext4_map_blocks/ext4_da_map_blocks.
++ *
++ * Return: 1 on found, 0 on not
++ */
++int ext4_es_lookup_extent(struct inode *inode, struct extent_status *es)
++{
++	struct ext4_es_tree *tree;
++	struct extent_status *es1;
++	struct rb_node *node;
++	int found = 0;
++
++	es_debug("lookup extent in block %u\n", es->es_lblk);
++
++	tree = &EXT4_I(inode)->i_es_tree;
++	read_lock(&EXT4_I(inode)->i_es_lock);
++
++	/* find delay extent in cache firstly */
++	if (tree->cache_es) {
++		es1 = tree->cache_es;
++		if (in_range(es->es_lblk, es1->es_lblk, es1->es_len)) {
++			es_debug("%u cached by [%u/%u)\n",
++				 es->es_lblk, es1->es_lblk, es1->es_len);
++			found = 1;
++			goto out;
++		}
++	}
++
++	es->es_len = 0;
++	node = tree->root.rb_node;
++	while (node) {
++		es1 = rb_entry(node, struct extent_status, rb_node);
++		if (es->es_lblk < es1->es_lblk)
++			node = node->rb_left;
++		else if (es->es_lblk > extent_status_end(es1))
++			node = node->rb_right;
++		else {
++			found = 1;
++			break;
++		}
++	}
++
++out:
++	if (found) {
++		es->es_lblk = es1->es_lblk;
++		es->es_len = es1->es_len;
++		es->es_pblk = es1->es_pblk;
++		es->es_status = es1->es_status;
++	}
++
++	read_unlock(&EXT4_I(inode)->i_es_lock);
++
++	return found;
++}
++
+ static int __es_remove_extent(struct ext4_es_tree *tree, ext4_lblk_t lblk,
+ 				 ext4_lblk_t end)
+ {
+diff --git a/fs/ext4/extents_status.h b/fs/ext4/extents_status.h
+index d1516fd..1890f80 100644
+--- a/fs/ext4/extents_status.h
++++ b/fs/ext4/extents_status.h
+@@ -50,6 +50,7 @@ extern int ext4_es_remove_extent(struct inode *inode, ext4_lblk_t lblk,
+ 				 ext4_lblk_t len);
+ extern ext4_lblk_t ext4_es_find_extent(struct inode *inode,
+ 				struct extent_status *es);
++extern int ext4_es_lookup_extent(struct inode *inode, struct extent_status *es);
+ 
+ static inline int ext4_es_is_written(struct extent_status *es)
+ {
+diff --git a/fs/ext4/inode.c b/fs/ext4/inode.c
+index 290c2c2..6610dc7 100644
+--- a/fs/ext4/inode.c
++++ b/fs/ext4/inode.c
+@@ -514,12 +514,39 @@ static pgoff_t ext4_num_dirty_pages(struct inode *inode, pgoff_t idx,
+ int ext4_map_blocks(handle_t *handle, struct inode *inode,
+ 		    struct ext4_map_blocks *map, int flags)
+ {
++	struct extent_status es;
+ 	int retval;
+ 
+ 	map->m_flags = 0;
+ 	ext_debug("ext4_map_blocks(): inode %lu, flag %d, max_blocks %u,"
+ 		  "logical block %lu\n", inode->i_ino, flags, map->m_len,
+ 		  (unsigned long) map->m_lblk);
++
++	/* Lookup extent status tree firstly */
++	es.es_lblk = map->m_lblk;
++	if (ext4_es_lookup_extent(inode, &es)) {
++		if (ext4_es_is_written(&es)) {
++			map->m_pblk = es.es_pblk + map->m_lblk - es.es_lblk;
++			map->m_flags |= EXT4_MAP_MAPPED;
++			retval = es.es_len - (map->m_lblk - es.es_lblk);
++			if (retval > map->m_len)
++				retval = map->m_len;
++			map->m_len = retval;
++		} else if (ext4_es_is_unwritten(&es)) {
++			map->m_pblk = es.es_pblk + map->m_lblk - es.es_lblk;
++			map->m_flags |= EXT4_MAP_UNWRITTEN;
++			retval = es.es_len - (map->m_lblk - es.es_lblk);
++			if (retval > map->m_len)
++				retval = map->m_len;
++			map->m_len = retval;
++		} else if (ext4_es_is_delayed(&es)) {
++			retval = 0;
++		} else {
++			BUG_ON(1);
++		}
++		goto found;
++	}
++
+ 	/*
+ 	 * Try to see if we can get the block without requesting a new
+ 	 * file system block.
+@@ -545,6 +572,7 @@ int ext4_map_blocks(handle_t *handle, struct inode *inode,
+ 	if (!(flags & EXT4_GET_BLOCKS_NO_LOCK))
+ 		up_read((&EXT4_I(inode)->i_data_sem));
+ 
++found:
+ 	if (retval > 0 && map->m_flags & EXT4_MAP_MAPPED) {
+ 		int ret = check_block_validity(inode, map);
+ 		if (ret != 0)
+@@ -1790,6 +1818,7 @@ static int ext4_da_map_blocks(struct inode *inode, sector_t iblock,
+ 			      struct ext4_map_blocks *map,
+ 			      struct buffer_head *bh)
+ {
++	struct extent_status es;
+ 	int retval;
+ 	sector_t invalid_block = ~((sector_t) 0xffff);
+ 
+@@ -1800,6 +1829,32 @@ static int ext4_da_map_blocks(struct inode *inode, sector_t iblock,
+ 	ext_debug("ext4_da_map_blocks(): inode %lu, max_blocks %u,"
+ 		  "logical block %lu\n", inode->i_ino, map->m_len,
+ 		  (unsigned long) map->m_lblk);
++
++	/* Lookup extent status tree firstly */
++	es.es_lblk = iblock;
++	if (ext4_es_lookup_extent(inode, &es)) {
++		map->m_pblk = es.es_pblk + iblock - es.es_lblk;
++		retval = es.es_len - (iblock - es.es_lblk);
++		if (retval > map->m_len)
++			retval = map->m_len;
++		map->m_len = retval;
++		if (ext4_es_is_written(&es)) {
++			map->m_flags |= EXT4_MAP_MAPPED;
++		} else if (ext4_es_is_unwritten(&es)) {
++			map->m_flags |= EXT4_MAP_UNWRITTEN;
++		} else if (ext4_es_is_delayed(&es)) {
++			map_bh(bh, inode->i_sb, invalid_block);
++			set_buffer_new(bh);
++			set_buffer_delay(bh);
++
++			return 0;
++		} else {
++			BUG_ON(1);
++		}
++
++		return retval;
++	}
++
+ 	/*
+ 	 * Try to see if we can get the block without requesting a new
+ 	 * file system block.
+-- 
+1.7.12.rc2.18.g61b472e
+
