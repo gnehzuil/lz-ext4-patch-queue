@@ -1,5 +1,5 @@
 # Stable patches
-# BASE v3.7
+# BASE v3.8-rc1
 # extent status tree (step2)
 0001-ext4-fixup-metadata-reserve-block-warning-when-bigal.patch
 0002-ext4-refine-extent-status-tree.patch
@@ -20,10 +20,13 @@
 # Submitted to mailing list
 add-hot-tracking-support.patch
 
-# BASE v3.7-rc1
 # expose stale data in fallocate
 add-expose_stale_data-flag-in-fallocate.patch
 
+####
+# Nerver maintain
+
+# BASE v3.7-rc1
 # cleanup ll_rw_block funtion
 replace-ll_rw_block-with-other-functions.patch
 
