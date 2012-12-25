@@ -11,14 +11,14 @@
 0008-ext4-refine-unwritten-extent-conversion.patch
 0009-ext4-set-dioread_nolock-by-default-for-extent-based-.patch
 
-# BASE v3.7-rc1
-# Submitted to mailing list
-add-hot-tracking-support.patch
-
 # punch hole improvements
 0001-ext4-add-indirect-punching-hole-support.patch
 0002-ext4-let-us-fully-support-punching-hole-feature-in-f.patch
 0003-ext4-add-tracepoint-for-punching-hole.patch
+
+# BASE v3.7-rc1
+# Submitted to mailing list
+add-hot-tracking-support.patch
 
 # BASE v3.7-rc1
 # expose stale data in fallocate
