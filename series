@@ -16,6 +16,8 @@
 0002-ext4-let-us-fully-support-punching-hole-feature-in-f.patch
 0003-ext4-add-tracepoint-for-punching-hole.patch
 
+fixup-a-warning-from-ext4_flush_unwritten_io-in.patch
+
 # BASE v3.7-rc1
 # Submitted to mailing list
 add-hot-tracking-support.patch

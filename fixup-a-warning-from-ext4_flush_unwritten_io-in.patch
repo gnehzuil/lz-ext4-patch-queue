@@ -1,0 +1,83 @@
+Subject: [PATCH] ext4: fixup a warning from ext4_flush_unwritten_io() in orphan list cleanup
+
+From: Zheng Liu <wenqing.lz@taobao.com>
+
+When ext4 tries to clean up orphan list, we will get the following warning from
+ext4_flush_unwritten_io() because i_mutex lock doesn't be taken.
+
+EXT4-fs (sda2): INFO: recovery required on readonly filesystem
+EXT4-fs (sda2): write access will be enabled during recovery
+EXT4-fs (sda2): orphan cleanup on readonly fs
+EXT4-fs (sda2): ext4_orphan_cleanup: truncating inode 841849 to 0 bytes
+------------[ cut here ]------------
+WARNING: at fs/ext4/page-io.c:232 ext4_flush_unwritten_io+0x6b/0x80()
+Hardware name: P35-DS3
+Modules linked in:
+Pid: 1, comm: swapper/0 Not tainted 3.8.0-rc1-00004-g637704c #1
+Call Trace:
+ [<ffffffff81038f5a>] warn_slowpath_common+0x7a/0xb0
+ [<ffffffff81038fa5>] warn_slowpath_null+0x15/0x20
+ [<ffffffff81163b8b>] ext4_flush_unwritten_io+0x6b/0x80
+ [<ffffffff8117ac5c>] ext4_ext_truncate+0x2c/0x1f0
+ [<ffffffff8116c6d0>] ? ext4_msg+0x50/0x60
+ [<ffffffff8115e050>] ext4_truncate+0x70/0xb0
+ [<ffffffff8117190b>] ext4_fill_super+0x2bab/0x2ce0
+ [<ffffffff810ef02a>] mount_bdev+0x1aa/0x1f0
+ [<ffffffff8102aec9>] ? default_spin_lock_flags+0x9/0x10
+ [<ffffffff8116ed60>] ? ext4_calculate_overhead+0x3a0/0x3a0
+ [<ffffffff8116a870>] ext4_mount+0x10/0x20
+ [<ffffffff810ef96b>] mount_fs+0x1b/0xd0
+ [<ffffffff81108fc1>] vfs_kern_mount+0x71/0x110
+ [<ffffffff8110b096>] do_mount+0x386/0x980
+ [<ffffffff810b7f43>] ? strndup_user+0x53/0x70
+ [<ffffffff8110b71b>] sys_mount+0x8b/0xe0
+ [<ffffffff816afcc8>] mount_block_root+0xfe/0x298
+ [<ffffffff816afeb8>] mount_root+0x56/0x5a
+ [<ffffffff816afff0>] prepare_namespace+0x134/0x16d
+ [<ffffffff8147c9c6>] kernel_init+0x196/0x2a0
+ [<ffffffff816af539>] ? loglevel+0x31/0x31
+ [<ffffffff8147c830>] ? rest_init+0x80/0x80
+ [<ffffffff81482a7c>] ret_from_fork+0x7c/0xb0
+ [<ffffffff8147c830>] ? rest_init+0x80/0x80
+---[ end trace 425942f4f0ed8d07 ]---
+EXT4-fs (sda2): ext4_orphan_cleanup: deleting unreferenced inode 835709
+EXT4-fs (sda2): ext4_orphan_cleanup: deleting unreferenced inode 835629
+
+Now we try to take i_mutex lock before orphan list cleanup, although we don't
+need to take it in ext4_orphan_cleanup() because no one write this inode.
+WARN_ON_ONCE doesn't be removed because this warning could help us to avoid some
+ciritcal errors.
+
+CC: Dmitry Monakhov <dmonakhov@openvz.org>
+Reported-by: Alexander Beregalov <a.beregalov@gmail.com>
+Signed-off-by: Zheng Liu <wenqing.lz@taobao.com>
+---
+ fs/ext4/super.c | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
+
+diff --git a/fs/ext4/super.c b/fs/ext4/super.c
+index 3cdb0a2..188d6f1 100644
+--- a/fs/ext4/super.c
++++ b/fs/ext4/super.c
+@@ -2212,7 +2212,18 @@ static void ext4_orphan_cleanup(struct super_block *sb,
+ 				__func__, inode->i_ino, inode->i_size);
+ 			jbd_debug(2, "truncating inode %lu to %lld bytes\n",
+ 				  inode->i_ino, inode->i_size);
++			/*
++			 * Actually we don't need to take i_mutex lock
++			 * because in orphan list cleanup no one can write
++			 * this inode.  We take it here because in calling
++			 * ext4_flush_unwritten_io() this lock needs to be
++			 * taken, and we don't want to remove this
++			 * WARN_ON_ONCE().  It is useful for us to avoid some
++			 * critical errors.
++			 */
++			mutex_lock(&inode->i_mutex);
+ 			ext4_truncate(inode);
++			mutex_unlock(&inode->i_mutex);
+ 			nr_truncates++;
+ 		} else {
+ 			ext4_msg(sb, KERN_DEBUG,
+-- 
+1.7.12.rc2.18.g61b472e
+
