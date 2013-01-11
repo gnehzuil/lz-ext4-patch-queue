@@ -1,4 +1,4 @@
-Subject: [RFC][PATCH 6/9 v1] ext4: lookup block mapping in extent status tree
+Subject: [PATCH 6/7 v2] ext4: lookup block mapping in extent status tree
 
 From: Zheng Liu <wenqing.lz@taobao.com>
 
@@ -11,18 +11,24 @@ When we try to lookup a block mapping, we always call ext4_map_blocks and/or
 ext4_da_map_blocks.  So in these functions we first try to lookup a block
 mapping in extent status tree.
 
+CC: Jan kara <jack@suse.cz>
+CC: "Theodore Ts'o" <tytso@mit.edu>
 Signed-off-by: Zheng Liu <wenqing.lz@taobao.com>
 ---
- fs/ext4/extents_status.c | 57 ++++++++++++++++++++++++++++++++++++++++++++++++
- fs/ext4/extents_status.h |  1 +
- fs/ext4/inode.c          | 55 ++++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 113 insertions(+)
+v2 <- v1:
+ * add tracepoint for ext4_es_lookup_extent()
+
+ fs/ext4/extents_status.c    | 59 +++++++++++++++++++++++++++++++++++++++++++++
+ fs/ext4/extents_status.h    |  1 +
+ fs/ext4/inode.c             | 55 ++++++++++++++++++++++++++++++++++++++++++
+ include/trace/events/ext4.h | 56 ++++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 171 insertions(+)
 
 diff --git a/fs/ext4/extents_status.c b/fs/ext4/extents_status.c
-index 3e6fa43..ccd940c 100644
+index b5a5224..ac9bb80 100644
 --- a/fs/ext4/extents_status.c
 +++ b/fs/ext4/extents_status.c
-@@ -454,6 +454,63 @@ error:
+@@ -454,6 +454,65 @@ error:
  	return err;
  }
  
@@ -40,12 +46,13 @@ index 3e6fa43..ccd940c 100644
 +	struct rb_node *node;
 +	int found = 0;
 +
++	trace_ext4_es_lookup_extent_enter(inode, es->es_lblk);
 +	es_debug("lookup extent in block %u\n", es->es_lblk);
 +
 +	tree = &EXT4_I(inode)->i_es_tree;
 +	read_lock(&EXT4_I(inode)->i_es_lock);
 +
-+	/* find delay extent in cache firstly */
++	/* find extent in cache firstly */
 +	if (tree->cache_es) {
 +		es1 = tree->cache_es;
 +		if (in_range(es->es_lblk, es1->es_lblk, es1->es_len)) {
@@ -80,6 +87,7 @@ index 3e6fa43..ccd940c 100644
 +
 +	read_unlock(&EXT4_I(inode)->i_es_lock);
 +
++	trace_ext4_es_lookup_extent_exit(inode, es, found);
 +	return found;
 +}
 +
@@ -87,7 +95,7 @@ index 3e6fa43..ccd940c 100644
  				 ext4_lblk_t end)
  {
 diff --git a/fs/ext4/extents_status.h b/fs/ext4/extents_status.h
-index d1516fd..1890f80 100644
+index dad3b5e..45e623e 100644
 --- a/fs/ext4/extents_status.h
 +++ b/fs/ext4/extents_status.h
 @@ -50,6 +50,7 @@ extern int ext4_es_remove_extent(struct inode *inode, ext4_lblk_t lblk,
@@ -99,10 +107,10 @@ index d1516fd..1890f80 100644
  static inline int ext4_es_is_written(struct extent_status *es)
  {
 diff --git a/fs/ext4/inode.c b/fs/ext4/inode.c
-index 290c2c2..6610dc7 100644
+index f0dda2a..c86b086 100644
 --- a/fs/ext4/inode.c
 +++ b/fs/ext4/inode.c
-@@ -514,12 +514,39 @@ static pgoff_t ext4_num_dirty_pages(struct inode *inode, pgoff_t idx,
+@@ -508,12 +508,39 @@ static pgoff_t ext4_num_dirty_pages(struct inode *inode, pgoff_t idx,
  int ext4_map_blocks(handle_t *handle, struct inode *inode,
  		    struct ext4_map_blocks *map, int flags)
  {
@@ -142,7 +150,7 @@ index 290c2c2..6610dc7 100644
  	/*
  	 * Try to see if we can get the block without requesting a new
  	 * file system block.
-@@ -545,6 +572,7 @@ int ext4_map_blocks(handle_t *handle, struct inode *inode,
+@@ -539,6 +566,7 @@ int ext4_map_blocks(handle_t *handle, struct inode *inode,
  	if (!(flags & EXT4_GET_BLOCKS_NO_LOCK))
  		up_read((&EXT4_I(inode)->i_data_sem));
  
@@ -150,7 +158,7 @@ index 290c2c2..6610dc7 100644
  	if (retval > 0 && map->m_flags & EXT4_MAP_MAPPED) {
  		int ret = check_block_validity(inode, map);
  		if (ret != 0)
-@@ -1790,6 +1818,7 @@ static int ext4_da_map_blocks(struct inode *inode, sector_t iblock,
+@@ -1784,6 +1812,7 @@ static int ext4_da_map_blocks(struct inode *inode, sector_t iblock,
  			      struct ext4_map_blocks *map,
  			      struct buffer_head *bh)
  {
@@ -158,7 +166,7 @@ index 290c2c2..6610dc7 100644
  	int retval;
  	sector_t invalid_block = ~((sector_t) 0xffff);
  
-@@ -1800,6 +1829,32 @@ static int ext4_da_map_blocks(struct inode *inode, sector_t iblock,
+@@ -1794,6 +1823,32 @@ static int ext4_da_map_blocks(struct inode *inode, sector_t iblock,
  	ext_debug("ext4_da_map_blocks(): inode %lu, max_blocks %u,"
  		  "logical block %lu\n", inode->i_ino, map->m_len,
  		  (unsigned long) map->m_lblk);
@@ -191,6 +199,73 @@ index 290c2c2..6610dc7 100644
  	/*
  	 * Try to see if we can get the block without requesting a new
  	 * file system block.
+diff --git a/include/trace/events/ext4.h b/include/trace/events/ext4.h
+index 5483f62..e14f541 100644
+--- a/include/trace/events/ext4.h
++++ b/include/trace/events/ext4.h
+@@ -2177,6 +2177,62 @@ TRACE_EVENT(ext4_es_find_extent_exit,
+ 		  __entry->pblk, __entry->status, __entry->ret)
+ );
+ 
++TRACE_EVENT(ext4_es_lookup_extent_enter,
++	TP_PROTO(struct inode *inode, ext4_lblk_t lblk),
++
++	TP_ARGS(inode, lblk),
++
++	TP_STRUCT__entry(
++		__field(	dev_t,		dev		)
++		__field(	ino_t,		ino		)
++		__field(	ext4_lblk_t,	lblk		)
++	),
++
++	TP_fast_assign(
++		__entry->dev	= inode->i_sb->s_dev;
++		__entry->ino	= inode->i_ino;
++		__entry->lblk	= lblk;
++	),
++
++	TP_printk("dev %d,%d ino %lu lblk %u",
++		  MAJOR(__entry->dev), MINOR(__entry->dev),
++		  (unsigned long) __entry->ino, __entry->lblk)
++);
++
++TRACE_EVENT(ext4_es_lookup_extent_exit,
++	TP_PROTO(struct inode *inode, struct extent_status *es,
++		 int found),
++
++	TP_ARGS(inode, es, found),
++
++	TP_STRUCT__entry(
++		__field(	dev_t,		dev		)
++		__field(	ino_t,		ino		)
++		__field(	ext4_lblk_t,	lblk		)
++		__field(	ext4_lblk_t,	len		)
++		__field(	ext4_fsblk_t,	pblk		)
++		__field(	int,		status		)
++		__field(	int,		found		)
++	),
++
++	TP_fast_assign(
++		__entry->dev	= inode->i_sb->s_dev;
++		__entry->ino	= inode->i_ino;
++		__entry->lblk	= es->es_lblk;
++		__entry->len	= es->es_len;
++		__entry->pblk	= es->es_pblk;
++		__entry->status	= es->es_status;
++		__entry->found	= found;
++	),
++
++	TP_printk("dev %d,%d ino %lu found %d [%u/%u) %llu %d",
++		  MAJOR(__entry->dev), MINOR(__entry->dev),
++		  (unsigned long) __entry->ino, __entry->found,
++		  __entry->lblk, __entry->len,
++		  __entry->found ? __entry->pblk : 0,
++		  __entry->found ? __entry->status : 0)
++);
++
+ #endif /* _TRACE_EXT4_H */
+ 
+ /* This part must be outside protection */
 -- 
 1.7.12.rc2.18.g61b472e
 

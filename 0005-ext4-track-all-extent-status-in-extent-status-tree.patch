@@ -1,4 +1,4 @@
-Subject: [RFC][PATCH 5/9 v1] ext4: track all extent status in extent status tree
+Subject: [PATCH 5/7 v2] ext4: track all extent status in extent status tree
 
 From: Zheng Liu <wenqing.lz@taobao.com>
 
@@ -13,6 +13,8 @@ to load all extent information.  So currently when we create/lookup an extent,
 this extent will be inserted into extent status tree.  Hence, the status in
 extent status tree might be not completely.
 
+CC: Jan kara <jack@suse.cz>
+CC: "Theodore Ts'o" <tytso@mit.edu>
 Signed-off-by: Zheng Liu <wenqing.lz@taobao.com>
 ---
  fs/ext4/extents.c |  5 +++-
@@ -21,7 +23,7 @@ Signed-off-by: Zheng Liu <wenqing.lz@taobao.com>
  3 files changed, 56 insertions(+), 28 deletions(-)
 
 diff --git a/fs/ext4/extents.c b/fs/ext4/extents.c
-index 0a0f635..d537cfa 100644
+index aa9a6d2..d23a654 100644
 --- a/fs/ext4/extents.c
 +++ b/fs/ext4/extents.c
 @@ -2074,7 +2074,7 @@ static int ext4_fill_fiemap_extents(struct inode *inode,
@@ -33,7 +35,7 @@ index 0a0f635..d537cfa 100644
  			flags |= FIEMAP_EXTENT_LAST;
  			if (unlikely(next_del != EXT_MAX_BLOCKS ||
  				     next != EXT_MAX_BLOCKS)) {
-@@ -4566,6 +4566,9 @@ static int ext4_find_delayed_extent(struct inode *inode,
+@@ -4570,6 +4570,9 @@ static int ext4_find_delayed_extent(struct inode *inode,
  			/* A hole found. */
  			return 0;
  
@@ -44,10 +46,10 @@ index 0a0f635..d537cfa 100644
  			/* A hole found. */
  			newex->ec_len = min(es.es_lblk - newex->ec_block,
 diff --git a/fs/ext4/file.c b/fs/ext4/file.c
-index 8b65a01..dbc581b 100644
+index 718c49f..afaf9f15 100644
 --- a/fs/ext4/file.c
 +++ b/fs/ext4/file.c
-@@ -474,7 +474,8 @@ static loff_t ext4_seek_data(struct file *file, loff_t offset, loff_t maxsize)
+@@ -466,7 +466,8 @@ static loff_t ext4_seek_data(struct file *file, loff_t offset, loff_t maxsize)
  		 */
  		es.es_lblk = last;
  		(void)ext4_es_find_extent(inode, &es);
@@ -57,7 +59,7 @@ index 8b65a01..dbc581b 100644
  			if (last != start)
  				dataoff = last << blkbits;
  			break;
-@@ -558,7 +559,8 @@ static loff_t ext4_seek_hole(struct file *file, loff_t offset, loff_t maxsize)
+@@ -550,7 +551,8 @@ static loff_t ext4_seek_hole(struct file *file, loff_t offset, loff_t maxsize)
  		 */
  		es.es_lblk = last;
  		(void)ext4_es_find_extent(inode, &es);
@@ -68,10 +70,10 @@ index 8b65a01..dbc581b 100644
  			holeoff = last << blkbits;
  			continue;
 diff --git a/fs/ext4/inode.c b/fs/ext4/inode.c
-index f7135fe..290c2c2 100644
+index e09c7cf..f0dda2a 100644
 --- a/fs/ext4/inode.c
 +++ b/fs/ext4/inode.c
-@@ -533,20 +533,20 @@ int ext4_map_blocks(handle_t *handle, struct inode *inode,
+@@ -527,20 +527,20 @@ int ext4_map_blocks(handle_t *handle, struct inode *inode,
  		retval = ext4_ind_map_blocks(handle, inode, map, flags &
  					     EXT4_GET_BLOCKS_KEEP_SIZE);
  	}
@@ -102,7 +104,7 @@ index f7135fe..290c2c2 100644
  		if (ret != 0)
  			return ret;
  	}
-@@ -621,18 +621,27 @@ int ext4_map_blocks(handle_t *handle, struct inode *inode,
+@@ -615,18 +615,27 @@ int ext4_map_blocks(handle_t *handle, struct inode *inode,
  			(flags & EXT4_GET_BLOCKS_DELALLOC_RESERVE))
  			ext4_da_update_reserve_space(inode, retval, 1);
  	}
@@ -140,7 +142,7 @@ index f7135fe..290c2c2 100644
  	}
  
  	up_write((&EXT4_I(inode)->i_data_sem));
-@@ -1814,6 +1823,7 @@ static int ext4_da_map_blocks(struct inode *inode, sector_t iblock,
+@@ -1805,6 +1814,7 @@ static int ext4_da_map_blocks(struct inode *inode, sector_t iblock,
  		retval = ext4_ind_map_blocks(NULL, inode, map, 0);
  
  	if (retval == 0) {
@@ -148,10 +150,10 @@ index f7135fe..290c2c2 100644
  		/*
  		 * XXX: __block_prepare_write() unmaps passed block,
  		 * is it OK?
-@@ -1821,16 +1831,20 @@ static int ext4_da_map_blocks(struct inode *inode, sector_t iblock,
- 		/* If the block was allocated from previously allocated cluster,
+@@ -1813,20 +1823,33 @@ static int ext4_da_map_blocks(struct inode *inode, sector_t iblock,
  		 * then we dont need to reserve it again. */
- 		if (!(map->m_flags & EXT4_MAP_FROM_CLUSTER)) {
+ 		if ((EXT4_SB(inode->i_sb)->s_cluster_ratio == 1) ||
+ 		    !ext4_find_delalloc_cluster(inode, map->m_lblk)) {
 -			retval = ext4_da_reserve_space(inode, iblock);
 -			if (retval)
 +			ret = ext4_da_reserve_space(inode, iblock);
@@ -172,9 +174,6 @@ index f7135fe..290c2c2 100644
  			goto out_unlock;
 +		}
  
- 		/* Clear EXT4_MAP_FROM_CLUSTER flag since its purpose is served
- 		 * and it should not appear on the bh->b_state.
-@@ -1840,6 +1854,15 @@ static int ext4_da_map_blocks(struct inode *inode, sector_t iblock,
  		map_bh(bh, inode->i_sb, invalid_block);
  		set_buffer_new(bh);
  		set_buffer_delay(bh);

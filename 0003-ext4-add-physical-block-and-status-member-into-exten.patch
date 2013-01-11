@@ -1,4 +1,4 @@
-Subject: [RFC][PATCH 3/9 v1] ext4: add physical block and status member into extent status tree
+Subject: [PATCH 3/7 v2] ext4: add physical block and status member into extent status tree
 
 From: Zheng Liu <wenqing.lz@taobao.com>
 
@@ -6,6 +6,8 @@ es_pblk is used to record physical block that maps to the disk.  es_status is
 used to record the status of the extent.  Three status are defined, which are
 written, unwritten and delayed.
 
+CC: Jan kara <jack@suse.cz>
+CC: "Theodore Ts'o" <tytso@mit.edu>
 Signed-off-by: Zheng Liu <wenqing.lz@taobao.com>
 ---
  fs/ext4/extents_status.h | 8 ++++++++

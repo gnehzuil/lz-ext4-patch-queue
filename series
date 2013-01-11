@@ -1,22 +1,18 @@
 # Stable patches
 # BASE v3.8-rc1
-# extent status tree (step2)
-0001-ext4-fixup-metadata-reserve-block-warning-when-bigal.patch
-0002-ext4-refine-extent-status-tree.patch
+# extent status tree (step2) v2
+0001-ext4-refine-extent-status-tree.patch
+0002-ext4-remove-EXT4_MAP_FROM_CLUSTER-flag.patch
 0003-ext4-add-physical-block-and-status-member-into-exten.patch
 0004-ext4-adjust-interfaces-of-extent-status-tree.patch
 0005-ext4-track-all-extent-status-in-extent-status-tree.patch
 0006-ext4-lookup-block-mapping-in-extent-status-tree.patch
-0007-ext4-add-a-new-convert-function-to-convert-an-unwrit.patch
-0008-ext4-refine-unwritten-extent-conversion.patch
-0009-ext4-set-dioread_nolock-by-default-for-extent-based-.patch
+0007-ext4-reclaim-extents-from-extent-status-tree.patch
 
 # punch hole improvements
 0001-ext4-add-indirect-punching-hole-support.patch
 0002-ext4-let-us-fully-support-punching-hole-feature-in-f.patch
 0003-ext4-add-tracepoint-for-punching-hole.patch
-
-fixup-a-warning-from-ext4_flush_unwritten_io-in.patch
 
 # BASE v3.7-rc1
 # Submitted to mailing list

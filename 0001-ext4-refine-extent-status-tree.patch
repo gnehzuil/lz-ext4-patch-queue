@@ -1,10 +1,12 @@
-Subject: [RFC][PATCH 2/9 v1] ext4: refine extent status tree
+Subject: [PATCH 1/7 v2] ext4: refine extent status tree
 
 From: Zheng Liu <wenqing.lz@taobao.com>
 
 This patch tries to refine the extent status tree.  A prefix 'es_' is added to
 make code clearly.
 
+CC: Jan kara <jack@suse.cz>
+CC: "Theodore Ts'o" <tytso@mit.edu>
 Signed-off-by: Zheng Liu <wenqing.lz@taobao.com>
 ---
  fs/ext4/extents.c           |  21 ++--
@@ -15,10 +17,10 @@ Signed-off-by: Zheng Liu <wenqing.lz@taobao.com>
  5 files changed, 207 insertions(+), 174 deletions(-)
 
 diff --git a/fs/ext4/extents.c b/fs/ext4/extents.c
-index 26af228..0a0f635 100644
+index 5ae1674..f7bf616 100644
 --- a/fs/ext4/extents.c
 +++ b/fs/ext4/extents.c
-@@ -3511,13 +3511,14 @@ static int ext4_find_delalloc_range(struct inode *inode,
+@@ -3525,13 +3525,14 @@ static int ext4_find_delalloc_range(struct inode *inode,
  {
  	struct extent_status es;
  
@@ -38,7 +40,7 @@ index 26af228..0a0f635 100644
  		return 1;
  	else
  		return 0;
-@@ -4553,7 +4554,7 @@ static int ext4_find_delayed_extent(struct inode *inode,
+@@ -4567,7 +4568,7 @@ static int ext4_find_delayed_extent(struct inode *inode,
  	struct extent_status es;
  	ext4_lblk_t next_del;
  
@@ -47,7 +49,7 @@ index 26af228..0a0f635 100644
  	next_del = ext4_es_find_extent(inode, &es);
  
  	if (newex->ec_start == 0) {
-@@ -4561,18 +4562,18 @@ static int ext4_find_delayed_extent(struct inode *inode,
+@@ -4575,18 +4576,18 @@ static int ext4_find_delayed_extent(struct inode *inode,
  		 * No extent in extent-tree contains block @newex->ec_start,
  		 * then the block may stay in 1)a hole or 2)delayed-extent.
  		 */
@@ -71,7 +73,7 @@ index 26af228..0a0f635 100644
  
  	return next_del;
 diff --git a/fs/ext4/extents_status.c b/fs/ext4/extents_status.c
-index 564d981..5878fb3 100644
+index 564d981..0662369 100644
 --- a/fs/ext4/extents_status.c
 +++ b/fs/ext4/extents_status.c
 @@ -26,9 +26,10 @@
@@ -219,7 +221,7 @@ index 564d981..5878fb3 100644
 +static int __es_insert_extent(struct ext4_es_tree *tree,
 +			      struct extent_status *newes);
 +static int __es_remove_extent(struct ext4_es_tree *tree, ext4_lblk_t lblk,
-+				 ext4_lblk_t end);
++			      ext4_lblk_t end);
 +
  int __init ext4_init_es(void)
  {
@@ -661,10 +663,10 @@ index 077f82d..81e9339 100644
  extern ext4_lblk_t ext4_es_find_extent(struct inode *inode,
  				struct extent_status *es);
 diff --git a/fs/ext4/file.c b/fs/ext4/file.c
-index b64a60b..8b65a01 100644
+index 405565a..718c49f 100644
 --- a/fs/ext4/file.c
 +++ b/fs/ext4/file.c
-@@ -472,10 +472,9 @@ static loff_t ext4_seek_data(struct file *file, loff_t offset, loff_t maxsize)
+@@ -464,10 +464,9 @@ static loff_t ext4_seek_data(struct file *file, loff_t offset, loff_t maxsize)
  		 * If there is a delay extent at this offset,
  		 * it will be as a data.
  		 */
@@ -677,7 +679,7 @@ index b64a60b..8b65a01 100644
  			if (last != start)
  				dataoff = last << blkbits;
  			break;
-@@ -557,11 +556,10 @@ static loff_t ext4_seek_hole(struct file *file, loff_t offset, loff_t maxsize)
+@@ -549,11 +548,10 @@ static loff_t ext4_seek_hole(struct file *file, loff_t offset, loff_t maxsize)
  		 * If there is a delay extent at this offset,
  		 * we will skip this extent.
  		 */
@@ -693,10 +695,10 @@ index b64a60b..8b65a01 100644
  			continue;
  		}
 diff --git a/include/trace/events/ext4.h b/include/trace/events/ext4.h
-index f6372b0..11374b7 100644
+index 7e8c36b..952628a 100644
 --- a/include/trace/events/ext4.h
 +++ b/include/trace/events/ext4.h
-@@ -2056,75 +2056,75 @@ TRACE_EVENT(ext4_ext_remove_space_done,
+@@ -2068,75 +2068,75 @@ TRACE_EVENT(ext4_ext_remove_space_done,
  );
  
  TRACE_EVENT(ext4_es_insert_extent,
@@ -788,7 +790,7 @@ index f6372b0..11374b7 100644
  );
  
  TRACE_EVENT(ext4_es_find_extent_exit,
-@@ -2136,7 +2136,7 @@ TRACE_EVENT(ext4_es_find_extent_exit,
+@@ -2148,7 +2148,7 @@ TRACE_EVENT(ext4_es_find_extent_exit,
  	TP_STRUCT__entry(
  		__field(	dev_t,		dev		)
  		__field(	ino_t,		ino		)
@@ -797,7 +799,7 @@ index f6372b0..11374b7 100644
  		__field(	ext4_lblk_t,	len		)
  		__field(	ext4_lblk_t,	ret		)
  	),
-@@ -2144,15 +2144,15 @@ TRACE_EVENT(ext4_es_find_extent_exit,
+@@ -2156,15 +2156,15 @@ TRACE_EVENT(ext4_es_find_extent_exit,
  	TP_fast_assign(
  		__entry->dev	= inode->i_sb->s_dev;
  		__entry->ino	= inode->i_ino;
