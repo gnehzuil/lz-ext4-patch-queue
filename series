@@ -15,6 +15,8 @@
 0003-ext4-add-tracepoint-for-punching-hole.patch
 correct-the-number-of-blocks-that-has-been-deal.patch
 
+fix-a-warning-from-sparse-check-for-ext4_dir_ll.patch
+
 # BASE v3.7-rc1
 # Submitted to mailing list
 add-hot-tracking-support.patch
