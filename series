@@ -1,22 +1,3 @@
-# Stable patches
-# BASE v3.8-rc1
-# extent status tree (step2) v2
-0001-ext4-refine-extent-status-tree.patch
-0002-ext4-remove-EXT4_MAP_FROM_CLUSTER-flag.patch
-0003-ext4-add-physical-block-and-status-member-into-exten.patch
-0004-ext4-adjust-interfaces-of-extent-status-tree.patch
-0005-ext4-track-all-extent-status-in-extent-status-tree.patch
-0006-ext4-lookup-block-mapping-in-extent-status-tree.patch
-0007-ext4-reclaim-extents-from-extent-status-tree.patch
-
-# punch hole improvements
-0001-ext4-add-indirect-punching-hole-support.patch
-0002-ext4-let-us-fully-support-punching-hole-feature-in-f.patch
-0003-ext4-add-tracepoint-for-punching-hole.patch
-correct-the-number-of-blocks-that-has-been-deal.patch
-
-fix-a-warning-from-sparse-check-for-ext4_dir_ll.patch
-
 # BASE v3.7-rc1
 # Submitted to mailing list
 add-hot-tracking-support.patch
