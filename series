@@ -1,3 +1,6 @@
+# BASE v3.8-rc3
+add-WARN_ON-to-check-the-length.patch
+
 # BASE v3.7-rc1
 # Submitted to mailing list
 add-hot-tracking-support.patch
