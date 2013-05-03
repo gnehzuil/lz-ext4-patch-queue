@@ -1,7 +1,3 @@
-# BASE v3.9-rc5
-0001-jbd2-use-kmem_cache_zalloc-for-allocating-journal-he.patch
-0002-jbd-use-kmem_cache_zalloc-for-allocating-journal-hea.patch
-
 # BASE v3.8-rc3
 add-WARN_ON-to-check-the-length.patch
 
