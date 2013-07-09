@@ -1,6 +1,3 @@
-# BASE v3.10-rc2
-make-ext4_add_dirent_to_inline-function-return-0
-
 # BASE v3.8-rc3
 add-WARN_ON-to-check-the-length.patch
 
