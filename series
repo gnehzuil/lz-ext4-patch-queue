@@ -1,12 +1,5 @@
-# BASE v3.8-rc3
+# BASE v3.10-rc1
 add-WARN_ON-to-check-the-length.patch
-
-# BASE v3.7-rc1
-# Submitted to mailing list
-add-hot-tracking-support.patch
-
-# expose stale data in fallocate
-add-expose_stale_data-flag-in-fallocate.patch
 
 ####
 # Nerver maintain
@@ -14,6 +7,7 @@ add-expose_stale_data-flag-in-fallocate.patch
 # BASE v3.7-rc1
 # cleanup ll_rw_block funtion
 replace-ll_rw_block-with-other-functions.patch
+add-expose_stale_data-flag-in-fallocate.patch
 
 # BASE v3.4
 
