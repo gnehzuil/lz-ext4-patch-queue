@@ -1,0 +1,47 @@
+From 2fd42b6b43b34d83a204337b5c93a61487e73b2b Mon Sep 17 00:00:00 2001
+From: Jan Kara <jack@suse.cz>
+Date: Thu, 25 Jul 2013 10:22:07 +0800
+Subject: [PATCH 1/2] ext4: remove the entry from es tree when bigalloc is
+ enabled
+
+Now in ext4_da_page_release_reservation() we remove the entry from es
+tree if to_release != 0.  But there are two issues.  One is that it is
+wrong when blocksize != pagesize, another is that we don't need to do
+this if ->s_cluster_ratio == 1 because we will remove the entry in
+ext4_truncate/ext4_punch_hole.  Here we need to do this just because
+when ->s_cluster_ratio > 1 we will determine whether we can release
+the reserved space according to ext4_find_delalloc_cluster().
+
+This commit tries to fix these problems.  Now we remove the entry from
+es tree only if ->s_cluster_ratio > 1.
+
+Signed-off-by: Jan Kara <jack@suse.cz>
+Signed-off-by: Zheng Liu <wenqing.lz@taobao.com>
+---
+ fs/ext4/inode.c |   10 +++++++++-
+ 1 file changed, 9 insertions(+), 1 deletion(-)
+
+diff --git a/fs/ext4/inode.c b/fs/ext4/inode.c
+index ba33c67..e0c8623 100644
+--- a/fs/ext4/inode.c
++++ b/fs/ext4/inode.c
+@@ -1387,7 +1387,15 @@ static void ext4_da_page_release_reservation(struct page *page,
+ 		curr_off = next_off;
+ 	} while ((bh = bh->b_this_page) != head);
+ 
+-	if (to_release) {
++	/*
++	 * Here we need to remove the entry from es tree because when bigalloc
++	 * is enabled we need to determine whether we can release the reserved
++	 * space according to the result of ext4_find_delalloc_cluster().
++	 *
++	 * If bigalloc is disabled, we don't need to do this here because these
++	 * extries in es tree will be removed in ext4_truncate/ext4_punch_hole.
++	 */
++	if (sbi->s_cluster_ratio > 1 && to_release) {
+ 		lblk = page->index << (PAGE_CACHE_SHIFT - inode->i_blkbits);
+ 		ext4_es_remove_extent(inode, lblk, to_release);
+ 	}
+-- 
+1.7.9.7
+
