@@ -2,9 +2,6 @@
 remove-entry-from-es-tree-with-bigalloc
 dont-retry-to-remove-entry-from-es
 
-# BASE v3.10-rc1
-add-WARN_ON-to-check-the-length.patch
-
 ####
 # Nerver maintain
 
